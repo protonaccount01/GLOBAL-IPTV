@@ -3,34 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Free IPTV Player</title>
-    <!-- Tailwind CSS এবং Hls.js ভিডিও প্লেয়ার লাইব্রেরি -->
+    <title>Global Country-Wise IPTV Player</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        <!-- বাম পাশে ভিডিও প্লেয়ার -->
         <div class="lg:col-span-2 space-y-4">
-            <h1 class="text-2xl font-bold text-emerald-400">🌍 Global IPTV Finder & Player</h1>
+            <h1 class="text-2xl font-bold text-emerald-400">🌍 Mega Global IPTV Player</h1>
             <div class="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-slate-800">
                 <video id="videoPlayer" class="w-full h-full" controls autoplay></video>
             </div>
             <h2 id="nowPlaying" class="text-xl font-semibold text-slate-300">Select a channel to play...</h2>
         </div>
 
-        <!-- ডান পাশে চ্যানেল লিস্ট ও সার্চ বাটন -->
-        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col h-[80vh]">
-            <input type="text" id="searchBox" placeholder="🔍 Search channels..." class="w-full p-2.5 mb-4 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500 text-white">
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col h-[85vh]">
             
-            <!-- চ্যানেল কার্ড লোড হওয়ার জায়গা -->
+            <label class="text-xs text-slate-400 font-bold uppercase mb-1">Select Country / Region:</label>
+            <select id="countrySelect" class="w-full p-2.5 mb-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+                <option value="ALL">Loading Countries...</option>
+            </select>
+
+            <input type="text" id="searchBox" placeholder="🔍 Search channels in selected country..." class="w-full p-2.5 mb-4 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500 text-white">
+            
             <div id="channelContainer" class="flex-1 overflow-y-auto space-y-2 pr-1">
-                <p class="text-center text-slate-500 animate-pulse mt-10">Finding channels worldwide...</p>
+                <p class="text-center text-slate-500 animate-pulse mt-10">Fetching 5000+ Channels...</p>
             </div>
         </div>
 
@@ -41,27 +45,43 @@
         const nowPlaying = document.getElementById('nowPlaying');
         const container = document.getElementById('channelContainer');
         const searchBox = document.getElementById('searchBox');
+        const countrySelect = document.getElementById('countrySelect');
         
         let allChannels = [];
         let hls = null;
 
-        // আপনার ক্লাউডফ্লেয়ার ওয়ার্কার ডেপ্লয় করার পর সেই URL টি এখানে বসাবেন
-        // টেস্ট করার জন্য স্থানীয়ভাবে বা ডেপ্লয়মেন্টের পর পরিবর্তন করুন
+        // 🔗 আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের URL-টি নিচে বসান
+        const API_URL = 'https://global-iptv.pages.dev'; 
 
-const API_URL = 'https://tv.psinfo.workers.dev';
-        // চ্যানেল এপিআই কল করা
         async function loadChannels() {
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
                 allChannels = data.channels;
+                
+                // দেশগুলোর লিস্ট তৈরি করা ও ড্রপডাউনে সেট করা
+                setupCountryDropdown();
+                
+                // প্রথমে সব চ্যানেল দেখানো
                 displayChannels(allChannels);
             } catch (err) {
-                container.innerHTML = `<p class="text-center text-red-400">Failed to load channels. Try again later.</p>`;
+                container.innerHTML = `<p class="text-center text-red-400">Failed to load channels. Check Worker URL.</p>`;
             }
         }
 
-        // স্ক্রিনে চ্যানেল দেখানোর ফাংশন
+        function setupCountryDropdown() {
+            // ইউনিক দেশের নামগুলো আলাদা করা
+            const countries = [...new Set(allChannels.map(ch => ch.category))].sort();
+            
+            countrySelect.innerHTML = '<option value="ALL">🌍 All Countries (Show All)</option>';
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.innerText = country;
+                countrySelect.appendChild(option);
+            });
+        }
+
         function displayChannels(channels) {
             container.innerHTML = '';
             if(channels.length === 0) {
@@ -69,14 +89,17 @@ const API_URL = 'https://tv.psinfo.workers.dev';
                 return;
             }
             
-            channels.forEach(ch => {
+            // পারফরম্যান্স ভালো রাখার জন্য একবারে সর্বোচ্চ ৩০০ চ্যানেল রেন্ডার করবে স্ক্রিনে
+            const limit = channels.slice(0, 300);
+            
+            limit.forEach(ch => {
                 const card = document.createElement('div');
                 card.className = "flex items-center gap-4 p-2 bg-slate-800/50 hover:bg-emerald-600/20 rounded-lg cursor-pointer transition border border-slate-800/80";
                 card.innerHTML = `
                     <img src="${ch.logo}" onerror="this.src='https://via.placeholder.com/50?text=TV'" class="w-12 h-12 rounded object-cover bg-white">
                     <div class="flex-1 min-w-0">
                         <p class="font-medium text-sm truncate">${ch.name}</p>
-                        <p class="text-xs text-slate-400 truncate">${ch.category}</p>
+                        <p class="text-xs text-slate-400 truncate">📍 ${ch.category}</p>
                     </div>
                 `;
                 card.onclick = () => playStream(ch.url, ch.name);
@@ -84,42 +107,45 @@ const API_URL = 'https://tv.psinfo.workers.dev';
             });
         }
 
-        // লাইভ টিভি প্লে করার মেইন ফাংশন
         function playStream(url, name) {
             nowPlaying.innerText = `📺 Now Playing: ${name}`;
-            
-            if (hls) {
-                hls.destroy();
-            }
+            if (hls) hls.destroy();
 
             if (Hls.isSupported()) {
                 hls = new Hls();
                 hls.loadSource(url);
                 hls.attachMedia(video);
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    video.play();
-                });
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        nowPlaying.innerText = `❌ Stream Error (Dead Link): ${name}`;
-                    }
+                hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+                hls.on(Hls.Events.ERROR, (evt, data) => {
+                    if (data.fatal) nowPlaying.innerText = `❌ Stream Dead/Offline: ${name}`;
                 });
             } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                 video.src = url;
-                video.addEventListener('loadedmetadata', function() {
-                    video.play();
-                });
+                video.addEventListener('loadedmetadata', () => video.play());
             }
         }
 
-        // লাইভ সার্চ ফিল্টার
-        searchBox.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(query) || ch.category.toLowerCase().includes(query));
+        // দেশ পরিবর্তন বা সার্চ করলে ফিল্টার করার লজিক
+        function filterChannels() {
+            const selectedCountry = countrySelect.value;
+            const searchQuery = searchBox.value.toLowerCase();
+            
+            let filtered = allChannels;
+            
+            if (selectedCountry !== "ALL") {
+                filtered = filtered.filter(ch => ch.category === selectedCountry);
+            }
+            
+            if (searchQuery) {
+                filtered = filtered.filter(ch => ch.name.toLowerCase().includes(query));
+            }
+            
             displayChannels(filtered);
-        });
+        }
 
-        // রান অ্যাপ
+        countrySelect.addEventListener('change', filterChannels);
+        searchBox.addEventListener('input', filterChannels);
+
         loadChannels();
     </script>
 </body>
