@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Free IPTV Player</title>
+    <!-- Tailwind CSS এবং Hls.js ভিডিও প্লেয়ার লাইব্রেরি -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- বাম পাশে ভিডিও প্লেয়ার -->
+        <div class="lg:col-span-2 space-y-4">
+            <h1 class="text-2xl font-bold text-emerald-400">🌍 Global IPTV Finder & Player</h1>
+            <div class="relative aspect-video bg-black rounded-xl overflow-hidden shadow-2xl border border-slate-800">
+                <video id="videoPlayer" class="w-full h-full" controls autoplay></video>
+            </div>
+            <h2 id="nowPlaying" class="text-xl font-semibold text-slate-300">Select a channel to play...</h2>
+        </div>
+
+        <!-- ডান পাশে চ্যানেল লিস্ট ও সার্চ বাটন -->
+        <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col h-[80vh]">
+            <input type="text" id="searchBox" placeholder="🔍 Search channels..." class="w-full p-2.5 mb-4 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500 text-white">
+            
+            <!-- চ্যানেল কার্ড লোড হওয়ার জায়গা -->
+            <div id="channelContainer" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                <p class="text-center text-slate-500 animate-pulse mt-10">Finding channels worldwide...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const nowPlaying = document.getElementById('nowPlaying');
+        const container = document.getElementById('channelContainer');
+        const searchBox = document.getElementById('searchBox');
+        
+        let allChannels = [];
+        let hls = null;
+
+        // আপনার ক্লাউডফ্লেয়ার ওয়ার্কার ডেপ্লয় করার পর সেই URL টি এখানে বসাবেন
+        // টেস্ট করার জন্য স্থানীয়ভাবে বা ডেপ্লয়মেন্টের পর পরিবর্তন করুন
+        const API_URL = '/api/channels'; 
+
+        // চ্যানেল এপিআই কল করা
+        async function loadChannels() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                allChannels = data.channels;
+                displayChannels(allChannels);
+            } catch (err) {
+                container.innerHTML = `<p class="text-center text-red-400">Failed to load channels. Try again later.</p>`;
+            }
+        }
+
+        // স্ক্রিনে চ্যানেল দেখানোর ফাংশন
+        function displayChannels(channels) {
+            container.innerHTML = '';
+            if(channels.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-500">No channels found</p>`;
+                return;
+            }
+            
+            channels.forEach(ch => {
+                const card = document.createElement('div');
+                card.className = "flex items-center gap-4 p-2 bg-slate-800/50 hover:bg-emerald-600/20 rounded-lg cursor-pointer transition border border-slate-800/80";
+                card.innerHTML = `
+                    <img src="${ch.logo}" onerror="this.src='https://via.placeholder.com/50?text=TV'" class="w-12 h-12 rounded object-cover bg-white">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-sm truncate">${ch.name}</p>
+                        <p class="text-xs text-slate-400 truncate">${ch.category}</p>
+                    </div>
+                `;
+                card.onclick = () => playStream(ch.url, ch.name);
+                container.appendChild(card);
+            });
+        }
+
+        // লাইভ টিভি প্লে করার মেইন ফাংশন
+        function playStream(url, name) {
+            nowPlaying.innerText = `📺 Now Playing: ${name}`;
+            
+            if (hls) {
+                hls.destroy();
+            }
+
+            if (Hls.isSupported()) {
+                hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    video.play();
+                });
+                hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        nowPlaying.innerText = `❌ Stream Error (Dead Link): ${name}`;
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', function() {
+                    video.play();
+                });
+            }
+        }
+
+        // লাইভ সার্চ ফিল্টার
+        searchBox.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allChannels.filter(ch => ch.name.toLowerCase().includes(query) || ch.category.toLowerCase().includes(query));
+            displayChannels(filtered);
+        });
+
+        // রান অ্যাপ
+        loadChannels();
+    </script>
+</body>
+</html>
