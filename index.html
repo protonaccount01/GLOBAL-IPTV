@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; }
+        /* কাস্টম স্ক্রোলবার ডিজাইন */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     </style>
@@ -50,27 +51,29 @@
         let allChannels = [];
         let hls = null;
 
-        // 🔗 আপনার ক্লাউডফ্লেয়ার ওয়ার্কারের URL-টি নিচে বসান
-        const API_URL = 'https://global-iptv.pages.dev'; 
+        // 🔗 গুরুত্বপূর্ণ: আপনার Cloudflare Worker ডেপ্লয় করার পর যে লিংকটি পেয়েছেন, সেটি নিচে বসান।
+        // উদাহরণ: 'https://your-worker-name.workers.dev'
+        const API_URL = 'https://your-worker-name.workers.dev'; 
 
+        // ব্যাকএন্ড ওয়ার্কার থেকে চ্যানেল ডেটা লোড করা
         async function loadChannels() {
             try {
                 const res = await fetch(API_URL);
                 const data = await res.json();
                 allChannels = data.channels;
                 
-                // দেশগুলোর লিস্ট তৈরি করা ও ড্রপডাউনে সেট করা
+                // দেশগুলোর লিস্ট ড্রপডাউনে সেট করা
                 setupCountryDropdown();
                 
-                // প্রথমে সব চ্যানেল দেখানো
+                // প্রথমে সব চ্যানেল স্ক্রিনে দেখানো
                 displayChannels(allChannels);
             } catch (err) {
-                container.innerHTML = `<p class="text-center text-red-400">Failed to load channels. Check Worker URL.</p>`;
+                container.innerHTML = `<p class="text-center text-red-400">Failed to load channels. Please check your Worker URL in index.html.</p>`;
             }
         }
 
+        // ড্রপডাউন মেনু তৈরি
         function setupCountryDropdown() {
-            // ইউনিক দেশের নামগুলো আলাদা করা
             const countries = [...new Set(allChannels.map(ch => ch.category))].sort();
             
             countrySelect.innerHTML = '<option value="ALL">🌍 All Countries (Show All)</option>';
@@ -82,6 +85,7 @@
             });
         }
 
+        // স্ক্রিনে চ্যানেল কার্ড রেন্ডার করা
         function displayChannels(channels) {
             container.innerHTML = '';
             if(channels.length === 0) {
@@ -89,7 +93,7 @@
                 return;
             }
             
-            // পারফরম্যান্স ভালো রাখার জন্য একবারে সর্বোচ্চ ৩০০ চ্যানেল রেন্ডার করবে স্ক্রিনে
+            // সাইট যাতে ল্যাগ না করে, তাই একবারে প্রথম ৩০০টি চ্যানেল লোড করবে
             const limit = channels.slice(0, 300);
             
             limit.forEach(ch => {
@@ -107,6 +111,7 @@
             });
         }
 
+        // লাইভ ভিডিও স্ট্রিমিং প্লেয়ার লজিক (.m3u8 HLS প্লেয়ার)
         function playStream(url, name) {
             nowPlaying.innerText = `📺 Now Playing: ${name}`;
             if (hls) hls.destroy();
@@ -125,7 +130,7 @@
             }
         }
 
-        // দেশ পরিবর্তন বা সার্চ করলে ফিল্টার করার লজিক
+        // দেশ পরিবর্তন বা সার্চ করার ফিল্টারিং লজিক (ফিক্সড)
         function filterChannels() {
             const selectedCountry = countrySelect.value;
             const searchQuery = searchBox.value.toLowerCase();
@@ -137,15 +142,17 @@
             }
             
             if (searchQuery) {
-                filtered = filtered.filter(ch => ch.name.toLowerCase().includes(query));
+                filtered = filtered.filter(ch => ch.name.toLowerCase().includes(searchQuery));
             }
             
             displayChannels(filtered);
         }
 
+        // ইভেন্ট লিসেনার সেট করা
         countrySelect.addEventListener('change', filterChannels);
         searchBox.addEventListener('input', filterChannels);
 
+        // অ্যাপ রান করা
         loadChannels();
     </script>
 </body>
